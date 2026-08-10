@@ -2,10 +2,11 @@
 
 import { cloneElement, isValidElement, useCallback, useEffect, useId, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
-import { BookOpen, Check, Clipboard, ExternalLink, FileText, Globe2, LoaderCircle, Pencil, Plus, Save, Trash2, Video } from "lucide-react";
+import { BookOpen, ChartNoAxesColumnIncreasing, Check, Clipboard, ExternalLink, FileText, Globe2, LoaderCircle, Pencil, Plus, Save, Trash2, Video } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
+import { LandingPageTrafficDialog } from "@/components/courses/landing-page-traffic-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -72,7 +73,7 @@ export function CourseWorkspace({ bundle, onDirtyChange, registerSave, guardNavi
         <p className="mt-1 text-sm text-muted-foreground">{bundle.course.instructor_name || "강사 미정"} · 웨비나 {formatKoreanDate(bundle.course.webinar_at, true)}</p>
       </div>
       <Tabs value={activeTab} onValueChange={(value) => guardNavigation(() => setActiveTab(value as TabKey))}>
-        <TabsList className="mb-5 h-auto w-full justify-start overflow-x-auto bg-transparent p-0">
+        <TabsList className="mb-5 h-auto w-full justify-start overflow-x-auto overflow-y-hidden bg-transparent p-0">
           <TabsTrigger value="basic"><BookOpen />기본 정보</TabsTrigger>
           <TabsTrigger value="youtube"><Video />유튜브 출연</TabsTrigger>
           <TabsTrigger value="landing"><Globe2 />랜딩페이지</TabsTrigger>
@@ -218,6 +219,7 @@ function LandingTab({ courseId, initialItems, onDirtyChange, registerSave, onDat
   const [saved, setSaved] = useState<LandingDraft[]>(initialItems);
   const [deleted, setDeleted] = useState<string[]>([]);
   const [editing, setEditing] = useState<LandingDraft | null>(null);
+  const [trafficTarget, setTrafficTarget] = useState<LandingPage | null>(null);
   const [pending, setPending] = useState(false);
   const dirty = deleted.length > 0 || JSON.stringify(items) !== JSON.stringify(saved);
   useEffect(() => onDirtyChange(dirty), [dirty, onDirtyChange]);
@@ -252,13 +254,14 @@ function LandingTab({ courseId, initialItems, onDirtyChange, registerSave, onDat
     <Card>
       <CardHeader className="flex-row items-start justify-between gap-4"><div><CardTitle>랜딩페이지 관리</CardTitle><CardDescription className="mt-1.5">저장할 때 서버에서 6자리 Short Code가 자동 생성됩니다.</CardDescription></div><Button onClick={() => setEditing(emptyLanding(courseId, items.length))}><Plus />랜딩페이지 추가</Button></CardHeader>
       <CardContent>
-        <div className="overflow-x-auto rounded-lg border"><Table><TableHeader><TableRow><TableHead>이름</TableHead><TableHead>원본 URL</TableHead><TableHead>짧은 URL</TableHead><TableHead className="w-24">관리</TableHead></TableRow></TableHeader><TableBody>
-          {items.length === 0 ? <TableRow><TableCell colSpan={4} className="h-32 text-center text-muted-foreground">등록된 랜딩페이지가 없습니다.</TableCell></TableRow> : items.map((item) => <TableRow key={item.id}><TableCell className="font-medium">{item.name}</TableCell><TableCell><Button asChild variant="ghost" size="sm"><a className="max-w-72" href={item.original_url} target="_blank" rel="noreferrer"><ExternalLink /><span className="truncate">{item.original_url}</span></a></Button></TableCell><TableCell><ShortUrl code={item.short_code} /></TableCell><TableCell><div className="flex"><Button variant="ghost" size="icon-sm" onClick={() => setEditing(item)} aria-label="수정"><Pencil /></Button><Button variant="ghost" size="icon-sm" onClick={() => { setItems((current) => current.filter((row) => row.id !== item.id)); if (!item.isNew) setDeleted((current) => [...current, item.id]); }} aria-label="삭제"><Trash2 /></Button></div></TableCell></TableRow>)}
+        <div className="overflow-x-auto rounded-lg border"><Table><TableHeader><TableRow><TableHead>이름</TableHead><TableHead>원본 URL</TableHead><TableHead>짧은 URL</TableHead><TableHead className="w-28">관리</TableHead></TableRow></TableHeader><TableBody>
+          {items.length === 0 ? <TableRow><TableCell colSpan={4} className="h-32 text-center text-muted-foreground">등록된 랜딩페이지가 없습니다.</TableCell></TableRow> : items.map((item) => <TableRow key={item.id}><TableCell className="font-medium">{item.name}</TableCell><TableCell><Button asChild variant="ghost" size="sm"><a className="max-w-72" href={item.original_url} target="_blank" rel="noreferrer"><ExternalLink /><span className="truncate">{item.original_url}</span></a></Button></TableCell><TableCell><ShortUrl code={item.short_code} /></TableCell><TableCell><div className="flex"><Button variant="ghost" size="icon-sm" onClick={() => setTrafficTarget(item)} disabled={Boolean(item.isNew)} aria-label="유입 통계"><ChartNoAxesColumnIncreasing /></Button><Button variant="ghost" size="icon-sm" onClick={() => setEditing(item)} aria-label="수정"><Pencil /></Button><Button variant="ghost" size="icon-sm" onClick={() => { setItems((current) => current.filter((row) => row.id !== item.id)); if (!item.isNew) setDeleted((current) => [...current, item.id]); }} aria-label="삭제"><Trash2 /></Button></div></TableCell></TableRow>)}
         </TableBody></Table></div>
         <div className="mt-4 rounded-lg bg-muted/60 px-4 py-3 text-xs leading-5 text-muted-foreground"><strong className="text-foreground">운영 안내</strong> · Preview 환경의 주소는 테스트용입니다. 외부 공유용 짧은 주소는 Vercel Production 배포 화면에서 복사하세요.</div>
         <SaveBar dirty={dirty} pending={pending} onSave={() => void save()} />
       </CardContent>
       {editing ? <LandingDialog key={editing.id} item={editing} onOpenChange={(open) => { if (!open) setEditing(null); }} onApply={applyDraft} /> : null}
+      {trafficTarget ? <LandingPageTrafficDialog key={trafficTarget.id} landingPage={trafficTarget} onOpenChange={(open) => { if (!open) setTrafficTarget(null); }} /> : null}
     </Card>
   );
 }

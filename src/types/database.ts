@@ -34,6 +34,24 @@ export type LandingPage = {
   updated_at: string;
 };
 
+export type ShortUrlClick = {
+  id: string;
+  landing_page_id: string;
+  clicked_at: string;
+  referrer: string | null;
+  user_agent: string | null;
+  country_code: string | null;
+  region: string | null;
+  city: string | null;
+};
+
+export type LandingPageTraffic = {
+  total: number;
+  today: number;
+  thisWeek: number;
+  recent: ShortUrlClick[];
+};
+
 export type SharedResource = {
   id: string;
   course_id: string;
@@ -116,6 +134,21 @@ export type Database = {
           updated_at?: string;
         };
         Update: Partial<Omit<SharedResource, "id" | "course_id" | "created_at">>;
+        Relationships: [];
+      };
+      short_url_clicks: {
+        Row: ShortUrlClick;
+        Insert: {
+          id?: string;
+          landing_page_id: string;
+          clicked_at?: string;
+          referrer?: string | null;
+          user_agent?: string | null;
+          country_code?: string | null;
+          region?: string | null;
+          city?: string | null;
+        };
+        Update: Partial<Omit<ShortUrlClick, "id" | "landing_page_id">>;
         Relationships: [];
       };
     };
