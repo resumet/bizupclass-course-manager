@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatKoreanDate, isoToKstDate, isoToKstDateTime, isHttpUrl, kstDateTimeToIso, kstDateToIso, nullable, requestJson } from "@/lib/client-api";
+import { DEFAULT_SHARED_RESOURCE_URL } from "@/lib/shared-resource-defaults";
 import type { Course, CourseBundle, LandingPage, SharedResource, YoutubeAppearance } from "@/types/database";
 
 type TabKey = "basic" | "youtube" | "landing" | "resources";
@@ -268,7 +269,7 @@ function LandingDialog({ item, onOpenChange, onApply }: { item: LandingDraft; on
 }
 
 type ResourceDraft = SharedResource & { isNew?: boolean };
-const emptyResource = (courseId: string, order: number): ResourceDraft => ({ id: `new-${crypto.randomUUID()}`, course_id: courseId, name: "", resource_type: "기타", url: "", sort_order: order, created_at: "", updated_at: "", isNew: true });
+const emptyResource = (courseId: string, order: number): ResourceDraft => ({ id: `new-${crypto.randomUUID()}`, course_id: courseId, name: "", resource_type: "기타", url: DEFAULT_SHARED_RESOURCE_URL, sort_order: order, created_at: "", updated_at: "", isNew: true });
 const resourceTypes = ["Google Drive", "Google Docs", "Google Sheets", "Google Slides", "Notion", "Figma", "Dropbox", "기타"];
 
 function ResourcesTab({ courseId, initialItems, onDirtyChange, registerSave, onDataSaved }: SharedTabProps & { courseId: string; initialItems: SharedResource[] }) {

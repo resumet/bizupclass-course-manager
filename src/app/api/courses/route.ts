@@ -1,4 +1,5 @@
 import { apiError, getAuthenticatedClient, unauthorized } from "@/lib/api/response";
+import { createDefaultSharedResources } from "@/lib/shared-resource-defaults";
 import { courseSchema, validationError } from "@/lib/validation";
 
 export async function GET() {
@@ -28,6 +29,15 @@ export async function POST(request: Request) {
       .select()
       .single();
     if (error) throw error;
+
+    const { error: resourcesError } = await auth.supabase
+      .from("shared_resources")
+      .insert(createDefaultSharedResources(data.id));
+    if (resourcesError) {
+      await auth.supabase.from("courses").delete().eq("id", data.id);
+      throw resourcesError;
+    }
+
     return Response.json(data, { status: 201 });
   } catch (error) {
     return apiError(error);
