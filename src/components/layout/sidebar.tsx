@@ -1,8 +1,9 @@
 "use client";
 
-import { BookOpenCheck, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { BookOpenCheck, LayoutDashboard, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 
 import { CourseCreateDialog } from "@/components/courses/course-create-dialog";
+import { CourseStatusBadge } from "@/components/courses/course-status-badge";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { formatKoreanLiveSchedule } from "@/lib/client-api";
@@ -12,13 +13,15 @@ import type { Course } from "@/types/database";
 type Props = {
   courses: Course[];
   activeCourseId?: string;
+  dashboardActive: boolean;
+  onDashboard: () => void;
   onSelect: (courseId: string) => void;
   onCreated: (course: Course) => void;
   onEdit: (courseId: string) => void;
   onDelete: (course: Course) => void;
 };
 
-export function SidebarContent({ courses, activeCourseId, onSelect, onCreated, onEdit, onDelete }: Props) {
+export function SidebarContent({ courses, activeCourseId, dashboardActive, onDashboard, onSelect, onCreated, onEdit, onDelete }: Props) {
   return (
     <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
       <div className="flex h-16 items-center gap-3 border-b px-5">
@@ -29,6 +32,9 @@ export function SidebarContent({ courses, activeCourseId, onSelect, onCreated, o
         </div>
       </div>
       <div className="p-4"><CourseCreateDialog onCreated={onCreated} /></div>
+      <div className="px-2 pb-4">
+        <Button variant="ghost" className={cn("w-full justify-start", dashboardActive && "bg-sidebar-accent font-semibold text-sidebar-accent-foreground")} onClick={onDashboard}><LayoutDashboard />대시보드</Button>
+      </div>
       <div className="flex items-center justify-between px-4 pb-2">
         <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">전체 강의</p>
         <span className="text-xs tabular-nums text-muted-foreground">{courses.length}</span>
@@ -40,11 +46,14 @@ export function SidebarContent({ courses, activeCourseId, onSelect, onCreated, o
           const liveSchedule = formatKoreanLiveSchedule(course.webinar_at);
           return (
             <div key={course.id} className={cn("group flex items-center rounded-lg", activeCourseId === course.id && "bg-sidebar-accent text-sidebar-accent-foreground")}>
-              <button type="button" className="min-w-0 flex-1 px-3 py-2.5 text-left" onClick={() => onSelect(course.id)}>
+              <button type="button" className="flex min-w-0 flex-1 items-start gap-2 px-3 py-2.5 text-left" onClick={() => onSelect(course.id)}>
+                <CourseStatusBadge status={course.status} iconOnly className="mt-0.5" />
+                <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-medium">{course.title}</span>
                 <span className="mt-0.5 block truncate text-xs text-muted-foreground">
                   {course.instructor_name || "강사 미정"}
                   {liveSchedule ? <span className="text-sidebar-foreground/70"> ({liveSchedule})</span> : null}
+                </span>
                 </span>
               </button>
               <DropdownMenu>

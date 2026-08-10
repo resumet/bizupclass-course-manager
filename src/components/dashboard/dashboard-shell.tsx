@@ -1,22 +1,25 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LogOut, Menu } from "lucide-react";
+import { Link2, LogOut, Menu, UserRound } from "lucide-react";
 import { toast } from "sonner";
 
 import { CourseWorkspace } from "@/components/courses/course-workspace";
+import { CourseLinksManager } from "@/components/dashboard/course-links-manager";
+import { DashboardOverview } from "@/components/dashboard/dashboard-overview";
 import { SidebarContent } from "@/components/layout/sidebar";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { createClient } from "@/lib/supabase/client";
 import { requestJson } from "@/lib/client-api";
-import type { Course, CourseBundle } from "@/types/database";
+import { sortCoursesByStartDate } from "@/lib/course-status";
+import type { Course, CourseBundle, GlobalCourseLink } from "@/types/database";
 
-type Props = { initialCourses: Course[]; bundle: CourseBundle | null };
+type Props = { initialCourses: Course[]; bundle: CourseBundle | null; userEmail: string; todayKst: string; view?: "dashboard" | "course" | "links"; initialLinks?: GlobalCourseLink[] };
 
-export function DashboardShell({ initialCourses, bundle }: Props) {
+export function DashboardShell({ initialCourses, bundle, userEmail, todayKst, view = bundle ? "course" : "dashboard", initialLinks = [] }: Props) {
   const router = useRouter();
   const [courses, setCourses] = useState(initialCourses);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -26,6 +29,7 @@ export function DashboardShell({ initialCourses, bundle }: Props) {
   const [deleting, setDeleting] = useState(false);
   const pendingAction = useRef<(() => void) | null>(null);
   const saveHandler = useRef<(() => Promise<boolean>) | null>(null);
+  const sortedCourses = useMemo(() => sortCoursesByStartDate(courses), [courses]);
 
   useEffect(() => {
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -45,6 +49,16 @@ export function DashboardShell({ initialCourses, bundle }: Props) {
   const navigateToCourse = useCallback((courseId: string) => {
     setMobileOpen(false);
     guardNavigation(() => router.push(`/dashboard/courses/${courseId}`));
+  }, [guardNavigation, router]);
+
+  const navigateToDashboard = useCallback(() => {
+    setMobileOpen(false);
+    guardNavigation(() => router.push("/dashboard"));
+  }, [guardNavigation, router]);
+
+  const navigateToLinks = useCallback(() => {
+    setMobileOpen(false);
+    guardNavigation(() => router.push("/dashboard/links"));
   }, [guardNavigation, router]);
 
   function handleCreated(course: Course) {
@@ -84,8 +98,10 @@ export function DashboardShell({ initialCourses, bundle }: Props) {
   }
 
   const sidebarProps = {
-    courses,
+    courses: sortedCourses,
     activeCourseId: bundle?.course.id,
+    dashboardActive: view === "dashboard",
+    onDashboard: navigateToDashboard,
     onSelect: navigateToCourse,
     onCreated: handleCreated,
     onEdit: navigateToCourse,
@@ -102,15 +118,15 @@ export function DashboardShell({ initialCourses, bundle }: Props) {
         <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur md:px-8">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMobileOpen(true)} aria-label="강의 목록 열기"><Menu /></Button>
-            <div>
-              <p className="text-sm font-semibold">{bundle?.course.title ?? "강의 대시보드"}</p>
-              <p className="hidden text-xs text-muted-foreground sm:block">강의 운영 정보를 한곳에서 관리하세요.</p>
-            </div>
+            <Button variant={view === "links" ? "default" : "outline"} size="sm" onClick={navigateToLinks}><Link2 />강의용 링크</Button>
           </div>
-          <Button variant="ghost" size="sm" onClick={() => guardNavigation(signOut)}><LogOut />로그아웃</Button>
+          <div className="flex min-w-0 items-center gap-1 sm:gap-2">
+            <div className="flex min-w-0 items-center gap-1.5 rounded-lg bg-muted px-2 py-1.5 text-xs text-muted-foreground" title={userEmail}><UserRound className="size-3.5 shrink-0" /><span className="max-w-28 truncate sm:max-w-52">{userEmail}</span></div>
+            <Button variant="ghost" size="sm" onClick={() => guardNavigation(signOut)}><LogOut /><span className="hidden sm:inline">로그아웃</span></Button>
+          </div>
         </header>
         <main className="flex-1 p-4 md:p-8">
-          <CourseWorkspace key={bundle?.course.id ?? "empty"} bundle={bundle} onDirtyChange={setDirty} registerSave={(handler) => { saveHandler.current = handler; }} guardNavigation={guardNavigation} onCourseUpdated={handleUpdated} />
+          {view === "links" ? <CourseLinksManager initialLinks={initialLinks} /> : bundle ? <CourseWorkspace key={bundle.course.id} bundle={bundle} onDirtyChange={setDirty} registerSave={(handler) => { saveHandler.current = handler; }} guardNavigation={guardNavigation} onCourseUpdated={handleUpdated} /> : <DashboardOverview courses={sortedCourses} todayKst={todayKst} onSelectCourse={navigateToCourse} />}
         </main>
       </div>
 
