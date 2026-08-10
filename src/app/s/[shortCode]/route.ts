@@ -42,7 +42,6 @@ export async function GET(request: Request, { params }: Context) {
     const responseHeaders = new Headers({
       Location: data.original_url,
       "X-Traffic-Recorded": clickError ? "false" : "true",
-      "X-Supabase-Project": new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!).hostname,
     });
     if (clickError?.code) responseHeaders.set("X-Traffic-Error-Code", clickError.code);
     return new Response(null, { status: 302, headers: responseHeaders });
