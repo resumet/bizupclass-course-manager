@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { LandingPageTrafficDialog } from "@/components/courses/landing-page-traffic-dialog";
+import { CourseStatusBadge } from "@/components/courses/course-status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -16,8 +17,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatKoreanDate, isoToKstDate, isoToKstDateTime, isHttpUrl, kstDateTimeToIso, kstDateToIso, nullable, requestJson } from "@/lib/client-api";
+import { COURSE_STATUSES, COURSE_STATUS_CONFIG } from "@/lib/course-status";
 import { DEFAULT_SHARED_RESOURCE_URL } from "@/lib/shared-resource-defaults";
-import type { Course, CourseBundle, LandingPage, SharedResource, YoutubeAppearance } from "@/types/database";
+import type { Course, CourseBundle, CourseStatus, LandingPage, SharedResource, YoutubeAppearance } from "@/types/database";
 
 type TabKey = "basic" | "youtube" | "landing" | "resources";
 type SaveHandler = () => Promise<boolean>;
@@ -33,7 +35,7 @@ type Props = Pick<SharedTabProps, "onDirtyChange" | "registerSave"> & {
 };
 
 const noopSubscribe = () => () => undefined;
-const courseTabTriggerClassName = "min-h-9 flex-none px-3 py-2 hover:bg-background/70 data-active:border-primary data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm data-active:hover:bg-primary dark:data-active:border-primary dark:data-active:bg-primary dark:data-active:text-primary-foreground sm:px-4";
+const courseTabTriggerClassName = "min-h-9 flex-none px-3 py-2 hover:bg-background/70 data-active:border-primary data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm data-active:hover:bg-primary data-active:hover:text-primary-foreground dark:data-active:border-primary dark:data-active:bg-primary dark:data-active:text-primary-foreground dark:data-active:hover:text-primary-foreground sm:px-4";
 
 function SaveBar({ dirty, pending, onSave }: { dirty: boolean; pending: boolean; onSave: () => void }) {
   return (
@@ -70,7 +72,7 @@ export function CourseWorkspace({ bundle, onDirtyChange, registerSave, guardNavi
   return (
     <div className="mx-auto max-w-7xl">
       <div className="mb-6">
-        <div className="flex flex-wrap items-center gap-2"><h1 className="text-2xl font-semibold tracking-tight">{bundle.course.title}</h1><Badge variant="secondary">운영 중</Badge></div>
+        <div className="flex flex-wrap items-center gap-2"><h1 className="text-2xl font-semibold tracking-tight">{bundle.course.title}</h1><CourseStatusBadge status={bundle.course.status} /></div>
         <p className="mt-1 text-sm text-muted-foreground">{bundle.course.instructor_name || "강사 미정"} · 웨비나 {formatKoreanDate(bundle.course.webinar_at, true)}</p>
       </div>
       <Tabs value={activeTab} onValueChange={(value) => guardNavigation(() => setActiveTab(value as TabKey))}>
@@ -90,7 +92,7 @@ export function CourseWorkspace({ bundle, onDirtyChange, registerSave, guardNavi
 }
 
 function BasicInfoTab({ course, onCourseUpdated, onDirtyChange, registerSave, onDataSaved }: SharedTabProps & { course: Course; onCourseUpdated: (course: Course) => void }) {
-  const initial = useCallback(() => ({ title: course.title, instructor: course.instructor_name ?? "", webinar: isoToKstDateTime(course.webinar_at), opening: isoToKstDate(course.opening_at) }), [course]);
+  const initial = useCallback(() => ({ title: course.title, instructor: course.instructor_name ?? "", webinar: isoToKstDateTime(course.webinar_at), opening: isoToKstDate(course.opening_at), status: course.status }), [course]);
   const [form, setForm] = useState(initial);
   const [saved, setSaved] = useState(initial);
   const [pending, setPending] = useState(false);
@@ -102,7 +104,7 @@ function BasicInfoTab({ course, onCourseUpdated, onDirtyChange, registerSave, on
     if (!form.title.trim()) { toast.error("강의명을 입력해 주세요."); return false; }
     setPending(true);
     try {
-      const updated = await requestJson<Course>(`/api/courses/${course.id}`, { method: "PATCH", body: JSON.stringify({ title: form.title, instructor_name: nullable(form.instructor), webinar_at: kstDateTimeToIso(form.webinar), opening_at: kstDateToIso(form.opening) }) });
+      const updated = await requestJson<Course>(`/api/courses/${course.id}`, { method: "PATCH", body: JSON.stringify({ title: form.title, instructor_name: nullable(form.instructor), webinar_at: kstDateTimeToIso(form.webinar), opening_at: kstDateToIso(form.opening), status: form.status }) });
       setSaved(form);
       onCourseUpdated(updated);
       onDataSaved();
@@ -123,6 +125,18 @@ function BasicInfoTab({ course, onCourseUpdated, onDirtyChange, registerSave, on
         <div className="grid gap-5 md:grid-cols-2">
           <div className="space-y-2 md:col-span-2"><Label htmlFor="course-title">강의명 <span className="text-destructive">*</span></Label><Input id="course-title" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} /></div>
           <div className="space-y-2 md:col-span-2"><Label htmlFor="course-instructor">강사명</Label><Input id="course-instructor" value={form.instructor} onChange={(event) => setForm({ ...form, instructor: event.target.value })} /></div>
+          <div className="space-y-2 md:col-span-2">
+            <Label htmlFor="course-status">강의 상태</Label>
+            <Select value={form.status} onValueChange={(status) => setForm({ ...form, status: status as CourseStatus })}>
+              <SelectTrigger id="course-status" className="w-full"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {COURSE_STATUSES.map((status) => {
+                  const { Icon, label } = COURSE_STATUS_CONFIG[status];
+                  return <SelectItem key={status} value={status}><Icon />{label}</SelectItem>;
+                })}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="space-y-2"><Label htmlFor="course-webinar">웨비나 날짜</Label><Input id="course-webinar" type="datetime-local" value={form.webinar} onChange={(event) => setForm({ ...form, webinar: event.target.value })} /></div>
           <div className="space-y-2"><Label htmlFor="course-opening">개강 날짜</Label><Input id="course-opening" type="date" value={form.opening} onChange={(event) => setForm({ ...form, opening: event.target.value })} /></div>
         </div>

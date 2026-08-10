@@ -1,9 +1,12 @@
+export type CourseStatus = "preparing" | "confirmed" | "ended" | "cancelled";
+
 export type Course = {
   id: string;
   title: string;
   instructor_name: string | null;
   webinar_at: string | null;
   opening_at: string | null;
+  status: CourseStatus;
   created_at: string;
   updated_at: string;
 };
@@ -63,6 +66,16 @@ export type SharedResource = {
   updated_at: string;
 };
 
+export type GlobalCourseLink = {
+  id: string;
+  title: string;
+  url: string;
+  description: string | null;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+};
+
 export type CourseBundle = {
   course: Course;
   youtube: YoutubeAppearance[];
@@ -81,6 +94,7 @@ export type Database = {
           instructor_name?: string | null;
           webinar_at?: string | null;
           opening_at?: string | null;
+          status?: CourseStatus;
           created_at?: string;
           updated_at?: string;
         };
@@ -149,6 +163,20 @@ export type Database = {
           city?: string | null;
         };
         Update: Partial<Omit<ShortUrlClick, "id" | "landing_page_id">>;
+        Relationships: [];
+      };
+      global_course_links: {
+        Row: GlobalCourseLink;
+        Insert: {
+          id?: string;
+          title: string;
+          url: string;
+          description?: string | null;
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Omit<GlobalCourseLink, "id" | "created_at">>;
         Relationships: [];
       };
     };

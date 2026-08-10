@@ -10,6 +10,7 @@ export const courseSchema = z.object({
   instructor_name: optionalText,
   webinar_at: optionalDate,
   opening_at: optionalDate,
+  status: z.enum(["preparing", "confirmed", "ended", "cancelled"]).default("preparing"),
 });
 
 export const youtubeSchema = z.object({
@@ -33,6 +34,13 @@ export const sharedResourceSchema = z.object({
   name: z.string().trim().min(1, "자료명을 입력해 주세요."),
   resource_type: optionalText,
   url: httpUrl,
+  sort_order: z.coerce.number().int().min(0).default(0),
+});
+
+export const globalCourseLinkSchema = z.object({
+  title: z.string().trim().min(1, "링크 이름을 입력해 주세요."),
+  url: httpUrl,
+  description: optionalText,
   sort_order: z.coerce.number().int().min(0).default(0),
 });
 

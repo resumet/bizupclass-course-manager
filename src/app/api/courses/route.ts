@@ -9,7 +9,8 @@ export async function GET() {
     const { data, error } = await auth.supabase
       .from("courses")
       .select("*")
-      .order("created_at", { ascending: false });
+      .order("webinar_at", { ascending: true, nullsFirst: false })
+      .order("created_at", { ascending: true });
     if (error) throw error;
     return Response.json(data);
   } catch (error) {
