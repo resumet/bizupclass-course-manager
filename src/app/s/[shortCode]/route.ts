@@ -1,5 +1,3 @@
-import { after } from "next/server";
-
 import { createAdminClient } from "@/lib/supabase/admin";
 import { decodeLocationHeader } from "@/lib/traffic";
 
@@ -31,17 +29,15 @@ export async function GET(request: Request, { params }: Context) {
     const region = decodeLocationHeader(request.headers.get("x-vercel-ip-country-region"));
     const city = decodeLocationHeader(request.headers.get("x-vercel-ip-city"));
 
-    after(async () => {
-      const { error: clickError } = await supabase.from("short_url_clicks").insert({
-        landing_page_id: data.id,
-        referrer,
-        user_agent: userAgent,
-        country_code: countryCode,
-        region,
-        city,
-      });
-      if (clickError) console.error("Short URL traffic logging failed", clickError);
+    const { error: clickError } = await supabase.from("short_url_clicks").insert({
+      landing_page_id: data.id,
+      referrer,
+      user_agent: userAgent,
+      country_code: countryCode,
+      region,
+      city,
     });
+    if (clickError) console.error("Short URL traffic logging failed", clickError);
 
     return Response.redirect(data.original_url, 302);
   } catch {
