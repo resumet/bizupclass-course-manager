@@ -33,6 +33,7 @@ type Props = Pick<SharedTabProps, "onDirtyChange" | "registerSave"> & {
 };
 
 const noopSubscribe = () => () => undefined;
+const courseTabTriggerClassName = "min-h-9 flex-none px-3 py-2 hover:bg-background/70 data-active:border-primary data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm data-active:hover:bg-primary dark:data-active:border-primary dark:data-active:bg-primary dark:data-active:text-primary-foreground sm:px-4";
 
 function SaveBar({ dirty, pending, onSave }: { dirty: boolean; pending: boolean; onSave: () => void }) {
   return (
@@ -73,11 +74,11 @@ export function CourseWorkspace({ bundle, onDirtyChange, registerSave, guardNavi
         <p className="mt-1 text-sm text-muted-foreground">{bundle.course.instructor_name || "강사 미정"} · 웨비나 {formatKoreanDate(bundle.course.webinar_at, true)}</p>
       </div>
       <Tabs value={activeTab} onValueChange={(value) => guardNavigation(() => setActiveTab(value as TabKey))}>
-        <TabsList className="mb-5 h-auto w-full justify-start overflow-x-auto overflow-y-hidden bg-transparent p-0">
-          <TabsTrigger value="basic"><BookOpen />기본 정보</TabsTrigger>
-          <TabsTrigger value="youtube"><Video />유튜브 출연</TabsTrigger>
-          <TabsTrigger value="landing"><Globe2 />랜딩페이지</TabsTrigger>
-          <TabsTrigger value="resources"><FileText />자료 공유</TabsTrigger>
+        <TabsList className="mb-5 h-auto w-full justify-start gap-1 overflow-x-auto overflow-y-hidden rounded-xl border bg-muted/60 p-1 shadow-inner">
+          <TabsTrigger className={courseTabTriggerClassName} value="basic"><BookOpen />기본 정보</TabsTrigger>
+          <TabsTrigger className={courseTabTriggerClassName} value="youtube"><Video />유튜브 출연</TabsTrigger>
+          <TabsTrigger className={courseTabTriggerClassName} value="landing"><Globe2 />랜딩페이지</TabsTrigger>
+          <TabsTrigger className={courseTabTriggerClassName} value="resources"><FileText />자료 공유</TabsTrigger>
         </TabsList>
       </Tabs>
       {activeTab === "basic" ? <BasicInfoTab course={bundle.course} onCourseUpdated={onCourseUpdated} {...tabProps} /> : null}

@@ -5,6 +5,7 @@ import { BookOpenCheck, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { CourseCreateDialog } from "@/components/courses/course-create-dialog";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { formatKoreanLiveSchedule } from "@/lib/client-api";
 import { cn } from "@/lib/utils";
 import type { Course } from "@/types/database";
 
@@ -35,24 +36,30 @@ export function SidebarContent({ courses, activeCourseId, onSelect, onCreated, o
       <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-2 pb-4" aria-label="강의 목록">
         {courses.length === 0 ? (
           <div className="mx-2 rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">아직 등록된 강의가 없습니다.</div>
-        ) : courses.map((course) => (
-          <div key={course.id} className={cn("group flex items-center rounded-lg", activeCourseId === course.id && "bg-sidebar-accent text-sidebar-accent-foreground")}>
-            <button type="button" className="min-w-0 flex-1 px-3 py-2.5 text-left" onClick={() => onSelect(course.id)}>
-              <span className="block truncate text-sm font-medium">{course.title}</span>
-              <span className="mt-0.5 block truncate text-xs text-muted-foreground">{course.instructor_name || "강사 미정"}</span>
-            </button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon-sm" className="mr-1 opacity-70 sm:opacity-0 sm:group-hover:opacity-100" aria-label={`${course.title} 관리 메뉴`}><MoreHorizontal /></Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => onEdit(course.id)}><Pencil />강의 수정</DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem variant="destructive" onClick={() => onDelete(course)}><Trash2 />강의 삭제</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        ))}
+        ) : courses.map((course) => {
+          const liveSchedule = formatKoreanLiveSchedule(course.webinar_at);
+          return (
+            <div key={course.id} className={cn("group flex items-center rounded-lg", activeCourseId === course.id && "bg-sidebar-accent text-sidebar-accent-foreground")}>
+              <button type="button" className="min-w-0 flex-1 px-3 py-2.5 text-left" onClick={() => onSelect(course.id)}>
+                <span className="block truncate text-sm font-medium">{course.title}</span>
+                <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                  {course.instructor_name || "강사 미정"}
+                  {liveSchedule ? <span className="text-sidebar-foreground/70"> ({liveSchedule})</span> : null}
+                </span>
+              </button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon-sm" className="mr-1 opacity-70 sm:opacity-0 sm:group-hover:opacity-100" aria-label={`${course.title} 관리 메뉴`}><MoreHorizontal /></Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => onEdit(course.id)}><Pencil />강의 수정</DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem variant="destructive" onClick={() => onDelete(course)}><Trash2 />강의 삭제</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          );
+        })}
       </nav>
     </div>
   );

@@ -64,3 +64,20 @@ export function formatKoreanDate(value: string | null, withTime = false) {
     ...(withTime ? { hour: "2-digit", minute: "2-digit" } : {}),
   }).format(new Date(value));
 }
+
+export function formatKoreanLiveSchedule(value: string | null) {
+  if (!value) return null;
+  const parts = new Intl.DateTimeFormat("ko-KR", {
+    timeZone: "Asia/Seoul",
+    month: "numeric",
+    day: "numeric",
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(value));
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((item) => item.type === type)?.value ?? "";
+
+  return `${part("month")}월${part("day")}일(${part("weekday")}) ${part("hour")}:${part("minute")}`;
+}
