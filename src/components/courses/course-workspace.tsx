@@ -14,12 +14,13 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatKoreanDate, isoToKstDate, isoToKstDateTime, isHttpUrl, kstDateTimeToIso, kstDateToIso, nullable, requestJson } from "@/lib/client-api";
 import { COURSE_STATUSES, COURSE_STATUS_CONFIG } from "@/lib/course-status";
 import { DEFAULT_SHARED_RESOURCE_URL } from "@/lib/shared-resource-defaults";
-import type { Course, CourseBundle, CourseStatus, LandingPage, SharedResource, YoutubeAppearance } from "@/types/database";
+import type { Course, CourseStatus, LandingPage, SharedResource, YoutubeAppearance } from "@/types/database";
 
 type TabKey = "basic" | "youtube" | "landing" | "resources";
 type SaveHandler = () => Promise<boolean>;
@@ -29,7 +30,7 @@ type SharedTabProps = {
   onDataSaved: () => void;
 };
 type Props = Pick<SharedTabProps, "onDirtyChange" | "registerSave"> & {
-  bundle: CourseBundle | null;
+  course: Course;
   guardNavigation: (action: () => void) => void;
   onCourseUpdated: (course: Course) => void;
 };
@@ -49,33 +50,51 @@ function SaveBar({ dirty, pending, onSave }: { dirty: boolean; pending: boolean;
   );
 }
 
-export function CourseWorkspace({ bundle, onDirtyChange, registerSave, guardNavigation, onCourseUpdated }: Props) {
+export function CourseWorkspace({ course, onDirtyChange, registerSave, guardNavigation, onCourseUpdated }: Props) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabKey>("basic");
-  const onDataSaved = useCallback(() => router.refresh(), [router]);
+  const [youtubeItems, setYoutubeItems] = useState<YoutubeAppearance[] | null>(null);
+  const [landingItems, setLandingItems] = useState<LandingPage[] | null>(null);
+  const [resourceItems, setResourceItems] = useState<SharedResource[] | null>(null);
+  const [tabError, setTabError] = useState<string | null>(null);
+  const [retryToken, setRetryToken] = useState(0);
 
-  if (!bundle) {
-    return (
-      <div className="mx-auto grid min-h-[70vh] max-w-2xl place-items-center">
-        <Card className="w-full border-dashed text-center">
-          <CardHeader className="items-center">
-            <div className="mb-2 flex size-12 items-center justify-center rounded-xl bg-muted"><BookOpen className="size-5 text-muted-foreground" /></div>
-            <CardTitle>관리할 강의를 선택하세요</CardTitle>
-            <CardDescription>왼쪽 목록에서 강의를 선택하거나 새 강의를 추가하면 상세 정보를 관리할 수 있습니다.</CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (activeTab === "basic") return;
+    const alreadyLoaded = activeTab === "youtube" ? youtubeItems : activeTab === "landing" ? landingItems : resourceItems;
+    if (alreadyLoaded !== null) return;
+    let cancelled = false;
+    const endpoint = activeTab === "youtube" ? "youtube" : activeTab === "landing" ? "landing-pages" : "resources";
+    requestJson<YoutubeAppearance[] | LandingPage[] | SharedResource[]>(`/api/courses/${course.id}/${endpoint}`)
+      .then((items) => {
+        if (cancelled) return;
+        if (activeTab === "youtube") setYoutubeItems(items as YoutubeAppearance[]);
+        else if (activeTab === "landing") setLandingItems(items as LandingPage[]);
+        else setResourceItems(items as SharedResource[]);
+      })
+      .catch((error) => {
+        if (!cancelled) setTabError(error instanceof Error ? error.message : "탭 데이터를 불러오지 못했습니다.");
+      });
+    return () => { cancelled = true; };
+  }, [activeTab, course.id, landingItems, resourceItems, retryToken, youtubeItems]);
+
+  useEffect(() => () => onDirtyChange(false), [onDirtyChange]);
+
+  const onDataSaved = useCallback(() => {
+    if (activeTab === "basic") return router.refresh();
+    if (activeTab === "youtube") setYoutubeItems(null);
+    else if (activeTab === "landing") setLandingItems(null);
+    else setResourceItems(null);
+  }, [activeTab, router]);
 
   const tabProps = { onDirtyChange, registerSave, onDataSaved };
   return (
     <div className="mx-auto max-w-7xl">
       <div className="mb-6">
-        <div className="flex flex-wrap items-center gap-2"><h1 className="text-2xl font-semibold tracking-tight">{bundle.course.title}</h1><CourseStatusBadge status={bundle.course.status} /></div>
-        <p className="mt-1 text-sm text-muted-foreground">{bundle.course.instructor_name || "강사 미정"} · 웨비나 {formatKoreanDate(bundle.course.webinar_at, true)}</p>
+        <div className="flex flex-wrap items-center gap-2"><h1 className="text-2xl font-semibold tracking-tight">{course.title}</h1><CourseStatusBadge status={course.status} /></div>
+        <p className="mt-1 text-sm text-muted-foreground">{course.instructor_name || "강사 미정"} · 웨비나 {formatKoreanDate(course.webinar_at, true)}</p>
       </div>
-      <Tabs value={activeTab} onValueChange={(value) => guardNavigation(() => setActiveTab(value as TabKey))}>
+      <Tabs value={activeTab} onValueChange={(value) => guardNavigation(() => { setTabError(null); setActiveTab(value as TabKey); })}>
         <TabsList className="mb-5 h-auto w-full justify-start gap-1 overflow-x-auto overflow-y-hidden rounded-xl border bg-muted/60 p-1 shadow-inner">
           <TabsTrigger className={courseTabTriggerClassName} value="basic"><BookOpen />기본 정보</TabsTrigger>
           <TabsTrigger className={courseTabTriggerClassName} value="youtube"><Video />유튜브 출연</TabsTrigger>
@@ -83,12 +102,17 @@ export function CourseWorkspace({ bundle, onDirtyChange, registerSave, guardNavi
           <TabsTrigger className={courseTabTriggerClassName} value="resources"><FileText />자료 공유</TabsTrigger>
         </TabsList>
       </Tabs>
-      {activeTab === "basic" ? <BasicInfoTab course={bundle.course} onCourseUpdated={onCourseUpdated} {...tabProps} /> : null}
-      {activeTab === "youtube" ? <YoutubeTab courseId={bundle.course.id} initialItems={bundle.youtube} {...tabProps} /> : null}
-      {activeTab === "landing" ? <LandingTab courseId={bundle.course.id} initialItems={bundle.landingPages} {...tabProps} /> : null}
-      {activeTab === "resources" ? <ResourcesTab courseId={bundle.course.id} initialItems={bundle.resources} {...tabProps} /> : null}
+      {activeTab === "basic" ? <BasicInfoTab course={course} onCourseUpdated={onCourseUpdated} {...tabProps} /> : null}
+      {activeTab === "youtube" ? youtubeItems ? <YoutubeTab courseId={course.id} initialItems={youtubeItems} {...tabProps} /> : <LazyTabState error={tabError} onRetry={() => { setTabError(null); setRetryToken((value) => value + 1); }} /> : null}
+      {activeTab === "landing" ? landingItems ? <LandingTab courseId={course.id} initialItems={landingItems} {...tabProps} /> : <LazyTabState error={tabError} onRetry={() => { setTabError(null); setRetryToken((value) => value + 1); }} /> : null}
+      {activeTab === "resources" ? resourceItems ? <ResourcesTab courseId={course.id} initialItems={resourceItems} {...tabProps} /> : <LazyTabState error={tabError} onRetry={() => { setTabError(null); setRetryToken((value) => value + 1); }} /> : null}
     </div>
   );
+}
+
+function LazyTabState({ error, onRetry }: { error: string | null; onRetry: () => void }) {
+  if (error) return <Card className="border-dashed"><CardHeader><CardTitle>데이터를 불러오지 못했습니다.</CardTitle><CardDescription>{error}</CardDescription></CardHeader><CardContent><Button variant="outline" onClick={onRetry}>다시 시도</Button></CardContent></Card>;
+  return <Card><CardHeader><Skeleton className="h-6 w-40" /><Skeleton className="h-4 w-72 max-w-full" /></CardHeader><CardContent className="space-y-3"><Skeleton className="h-10 w-full" /><Skeleton className="h-24 w-full" /></CardContent></Card>;
 }
 
 function BasicInfoTab({ course, onCourseUpdated, onDirtyChange, registerSave, onDataSaved }: SharedTabProps & { course: Course; onCourseUpdated: (course: Course) => void }) {
