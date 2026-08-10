@@ -72,7 +72,7 @@ export function CourseWorkspace({ bundle, onDirtyChange, registerSave, guardNavi
         <p className="mt-1 text-sm text-muted-foreground">{bundle.course.instructor_name || "강사 미정"} · 웨비나 {formatKoreanDate(bundle.course.webinar_at, true)}</p>
       </div>
       <Tabs value={activeTab} onValueChange={(value) => guardNavigation(() => setActiveTab(value as TabKey))}>
-        <TabsList className="mb-5 h-auto w-full justify-start overflow-x-auto bg-transparent p-0">
+        <TabsList className="mb-5 h-auto w-full justify-start overflow-x-auto overflow-y-hidden bg-transparent p-0">
           <TabsTrigger value="basic"><BookOpen />기본 정보</TabsTrigger>
           <TabsTrigger value="youtube"><Video />유튜브 출연</TabsTrigger>
           <TabsTrigger value="landing"><Globe2 />랜딩페이지</TabsTrigger>
