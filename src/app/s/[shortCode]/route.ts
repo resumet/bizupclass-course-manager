@@ -39,7 +39,10 @@ export async function GET(request: Request, { params }: Context) {
     });
     if (clickError) console.error("Short URL traffic logging failed", clickError);
 
-    return Response.redirect(data.original_url, 302);
+    const response = Response.redirect(data.original_url, 302);
+    response.headers.set("X-Traffic-Recorded", clickError ? "false" : "true");
+    if (clickError?.code) response.headers.set("X-Traffic-Error-Code", clickError.code);
+    return response;
   } catch {
     return new Response("짧은 주소 서비스를 사용할 수 없습니다.", { status: 503 });
   }
