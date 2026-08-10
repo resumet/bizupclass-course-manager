@@ -7,9 +7,9 @@ export function apiError(error: unknown, fallback = "요청을 처리하지 못�
 
 export async function getAuthenticatedClient() {
   const supabase = await createClient();
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user) return null;
-  return { supabase, user: data.user };
+  const { data, error } = await supabase.auth.getClaims();
+  if (error || !data?.claims?.sub) return null;
+  return { supabase, claims: data.claims };
 }
 
 export function unauthorized() {

@@ -35,10 +35,12 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
-  const { data } = await supabase.auth.getUser();
+  // Proxy performs an optimistic cookie check and refreshes expiring sessions.
+  // Server Components and Route Handlers still verify claims before reading data.
+  const { data, error } = await supabase.auth.getSession();
   const isProtected = pathname.startsWith("/dashboard") || pathname.startsWith("/api/");
 
-  if (isProtected && !data.user) {
+  if (isProtected && (error || !data.session?.access_token)) {
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
     }
@@ -48,7 +50,7 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  if (pathname === "/login" && data.user) {
+  if (pathname === "/login" && data.session?.access_token) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 

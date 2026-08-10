@@ -1,13 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { Link2, LogOut, Menu, UserRound } from "lucide-react";
 import { toast } from "sonner";
 
-import { CourseWorkspace } from "@/components/courses/course-workspace";
-import { CourseLinksManager } from "@/components/dashboard/course-links-manager";
-import { DashboardOverview } from "@/components/dashboard/dashboard-overview";
 import { SidebarContent } from "@/components/layout/sidebar";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
@@ -15,12 +13,30 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { createClient } from "@/lib/supabase/client";
 import { requestJson } from "@/lib/client-api";
 import { sortCoursesByStartDate } from "@/lib/course-status";
-import type { Course, CourseBundle, GlobalCourseLink } from "@/types/database";
+import type { Course } from "@/types/database";
 
-type Props = { initialCourses: Course[]; bundle: CourseBundle | null; userEmail: string; todayKst: string; view?: "dashboard" | "course" | "links"; initialLinks?: GlobalCourseLink[] };
+type Props = { initialCourses: Course[]; userEmail: string; children: React.ReactNode };
+type DashboardContextValue = {
+  courses: Course[];
+  guardNavigation: (action: () => void) => void;
+  navigateToCourse: (courseId: string) => void;
+  prefetchCourse: (courseId: string) => void;
+  onCourseUpdated: (course: Course) => void;
+  onDirtyChange: (dirty: boolean) => void;
+  registerSave: (handler: () => Promise<boolean>) => void;
+};
 
-export function DashboardShell({ initialCourses, bundle, userEmail, todayKst, view = bundle ? "course" : "dashboard", initialLinks = [] }: Props) {
+const DashboardContext = createContext<DashboardContextValue | null>(null);
+
+export function useDashboard() {
+  const context = useContext(DashboardContext);
+  if (!context) throw new Error("useDashboard must be used within DashboardShell");
+  return context;
+}
+
+export function DashboardShell({ initialCourses, userEmail, children }: Props) {
   const router = useRouter();
+  const pathname = usePathname();
   const [courses, setCourses] = useState(initialCourses);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -30,6 +46,9 @@ export function DashboardShell({ initialCourses, bundle, userEmail, todayKst, vi
   const pendingAction = useRef<(() => void) | null>(null);
   const saveHandler = useRef<(() => Promise<boolean>) | null>(null);
   const sortedCourses = useMemo(() => sortCoursesByStartDate(courses), [courses]);
+  const activeCourseId = pathname.match(/^\/dashboard\/courses\/([^/]+)$/)?.[1];
+  const dashboardActive = pathname === "/dashboard";
+  const linksActive = pathname === "/dashboard/links";
 
   useEffect(() => {
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -51,6 +70,10 @@ export function DashboardShell({ initialCourses, bundle, userEmail, todayKst, vi
     guardNavigation(() => router.push(`/dashboard/courses/${courseId}`));
   }, [guardNavigation, router]);
 
+  const prefetchCourse = useCallback((courseId: string) => {
+    router.prefetch(`/dashboard/courses/${courseId}`);
+  }, [router]);
+
   const navigateToDashboard = useCallback(() => {
     setMobileOpen(false);
     guardNavigation(() => router.push("/dashboard"));
@@ -61,14 +84,14 @@ export function DashboardShell({ initialCourses, bundle, userEmail, todayKst, vi
     guardNavigation(() => router.push("/dashboard/links"));
   }, [guardNavigation, router]);
 
-  function handleCreated(course: Course) {
+  const handleCreated = useCallback((course: Course) => {
     setCourses((current) => [course, ...current]);
     guardNavigation(() => router.push(`/dashboard/courses/${course.id}`));
-  }
+  }, [guardNavigation, router]);
 
-  function handleUpdated(course: Course) {
+  const handleUpdated = useCallback((course: Course) => {
     setCourses((current) => current.map((item) => item.id === course.id ? course : item));
-  }
+  }, []);
 
   async function handleDelete() {
     if (!deleteTarget) return;
@@ -79,7 +102,7 @@ export function DashboardShell({ initialCourses, bundle, userEmail, todayKst, vi
       setCourses(remaining);
       setDeleteTarget(null);
       toast.success("강의와 연결된 정보가 삭제되었습니다.");
-      if (bundle?.course.id === deleteTarget.id) {
+      if (activeCourseId === deleteTarget.id) {
         setDirty(false);
         router.push(remaining[0] ? `/dashboard/courses/${remaining[0].id}` : "/dashboard");
       }
@@ -99,16 +122,28 @@ export function DashboardShell({ initialCourses, bundle, userEmail, todayKst, vi
 
   const sidebarProps = {
     courses: sortedCourses,
-    activeCourseId: bundle?.course.id,
-    dashboardActive: view === "dashboard",
+    activeCourseId,
+    dashboardActive,
     onDashboard: navigateToDashboard,
     onSelect: navigateToCourse,
+    onPrefetch: prefetchCourse,
     onCreated: handleCreated,
     onEdit: navigateToCourse,
     onDelete: setDeleteTarget,
   };
 
+  const contextValue = useMemo<DashboardContextValue>(() => ({
+    courses: sortedCourses,
+    guardNavigation,
+    navigateToCourse,
+    prefetchCourse,
+    onCourseUpdated: handleUpdated,
+    onDirtyChange: setDirty,
+    registerSave: (handler) => { saveHandler.current = handler; },
+  }), [guardNavigation, handleUpdated, navigateToCourse, prefetchCourse, sortedCourses]);
+
   return (
+    <DashboardContext.Provider value={contextValue}>
     <div className="flex min-h-screen bg-muted/30">
       <aside className="fixed inset-y-0 left-0 z-20 hidden w-72 border-r md:block"><SidebarContent {...sidebarProps} /></aside>
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
@@ -118,7 +153,7 @@ export function DashboardShell({ initialCourses, bundle, userEmail, todayKst, vi
         <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur md:px-8">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMobileOpen(true)} aria-label="강의 목록 열기"><Menu /></Button>
-            <Button variant={view === "links" ? "default" : "outline"} size="sm" onClick={navigateToLinks}><Link2 />강의용 링크</Button>
+            <Button asChild variant={linksActive ? "default" : "outline"} size="sm"><Link href="/dashboard/links" onMouseEnter={() => router.prefetch("/dashboard/links")} onFocus={() => router.prefetch("/dashboard/links")} onClick={(event) => { event.preventDefault(); navigateToLinks(); }}><Link2 />강의용 링크</Link></Button>
           </div>
           <div className="flex min-w-0 items-center gap-1 sm:gap-2">
             <div className="flex min-w-0 items-center gap-1.5 rounded-lg bg-muted px-2 py-1.5 text-xs text-muted-foreground" title={userEmail}><UserRound className="size-3.5 shrink-0" /><span className="max-w-28 truncate sm:max-w-52">{userEmail}</span></div>
@@ -126,7 +161,7 @@ export function DashboardShell({ initialCourses, bundle, userEmail, todayKst, vi
           </div>
         </header>
         <main className="flex-1 p-4 md:p-8">
-          {view === "links" ? <CourseLinksManager initialLinks={initialLinks} /> : bundle ? <CourseWorkspace key={bundle.course.id} bundle={bundle} onDirtyChange={setDirty} registerSave={(handler) => { saveHandler.current = handler; }} guardNavigation={guardNavigation} onCourseUpdated={handleUpdated} /> : <DashboardOverview courses={sortedCourses} todayKst={todayKst} onSelectCourse={navigateToCourse} />}
+          {children}
         </main>
       </div>
 
@@ -166,5 +201,6 @@ export function DashboardShell({ initialCourses, bundle, userEmail, todayKst, vi
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </DashboardContext.Provider>
   );
 }

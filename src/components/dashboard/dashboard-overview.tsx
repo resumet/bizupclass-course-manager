@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { CalendarDays, ChevronLeft, ChevronRight, Clock3, UserRound } from "lucide-react";
 
 import { CourseStatusBadge } from "@/components/courses/course-status-badge";
@@ -15,6 +16,7 @@ type Props = {
   courses: Course[];
   todayKst: string;
   onSelectCourse: (courseId: string) => void;
+  onPrefetchCourse: (courseId: string) => void;
 };
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
@@ -34,7 +36,7 @@ function buildCalendarDays(year: number, month: number) {
   });
 }
 
-export function DashboardOverview({ courses, todayKst, onSelectCourse }: Props) {
+export function DashboardOverview({ courses, todayKst, onSelectCourse, onPrefetchCourse }: Props) {
   const [initialYear, initialMonth] = todayKst.split("-").map(Number);
   const [visibleMonth, setVisibleMonth] = useState(() => ({ year: initialYear, month: initialMonth - 1 }));
   const ongoingCourses = useMemo(() => courses.filter(isOngoingCourse), [courses]);
@@ -81,7 +83,7 @@ export function DashboardOverview({ courses, todayKst, onSelectCourse }: Props) 
                   </CardHeader>
                   <CardContent className="flex items-center justify-between gap-3">
                     <span className="flex items-center gap-1.5 text-sm font-medium"><Clock3 className="size-4" />{formatKoreanLiveSchedule(course.webinar_at) ?? "일정 미정"}</span>
-                    <Button size="sm" variant="outline" className="bg-background/70" onClick={() => onSelectCourse(course.id)}>관리</Button>
+                    <Button asChild size="sm" variant="outline" className="bg-background/70"><Link href={`/dashboard/courses/${course.id}`} onMouseEnter={() => onPrefetchCourse(course.id)} onFocus={() => onPrefetchCourse(course.id)} onClick={(event) => { event.preventDefault(); onSelectCourse(course.id); }}>관리</Link></Button>
                   </CardContent>
                 </Card>
               );
@@ -121,9 +123,9 @@ export function DashboardOverview({ courses, todayKst, onSelectCourse }: Props) 
                         {scheduled.map((course) => {
                           const { Icon, eventClassName } = COURSE_STATUS_CONFIG[course.status];
                           return (
-                            <button key={course.id} type="button" className={cn("flex w-full items-center gap-1 rounded-md border px-1.5 py-1 text-left text-[11px] font-medium transition-opacity hover:opacity-75", eventClassName)} onClick={() => onSelectCourse(course.id)} title={`${course.title} · ${formatKoreanLiveSchedule(course.webinar_at)}`}>
+                            <Link key={course.id} href={`/dashboard/courses/${course.id}`} className={cn("flex w-full items-center gap-1 rounded-md border px-1.5 py-1 text-left text-[11px] font-medium transition-opacity hover:opacity-75", eventClassName)} onMouseEnter={() => onPrefetchCourse(course.id)} onFocus={() => onPrefetchCourse(course.id)} onClick={(event) => { event.preventDefault(); onSelectCourse(course.id); }} title={`${course.title} · ${formatKoreanLiveSchedule(course.webinar_at)}`}>
                               <Icon className="size-3 shrink-0" /><span className="truncate">{course.title}</span>
-                            </button>
+                            </Link>
                           );
                         })}
                       </div>

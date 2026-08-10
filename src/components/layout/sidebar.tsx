@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { BookOpenCheck, LayoutDashboard, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 
 import { CourseCreateDialog } from "@/components/courses/course-create-dialog";
@@ -16,12 +17,13 @@ type Props = {
   dashboardActive: boolean;
   onDashboard: () => void;
   onSelect: (courseId: string) => void;
+  onPrefetch: (courseId: string) => void;
   onCreated: (course: Course) => void;
   onEdit: (courseId: string) => void;
   onDelete: (course: Course) => void;
 };
 
-export function SidebarContent({ courses, activeCourseId, dashboardActive, onDashboard, onSelect, onCreated, onEdit, onDelete }: Props) {
+export function SidebarContent({ courses, activeCourseId, dashboardActive, onDashboard, onSelect, onPrefetch, onCreated, onEdit, onDelete }: Props) {
   return (
     <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
       <div className="flex h-16 items-center gap-3 border-b px-5">
@@ -33,7 +35,7 @@ export function SidebarContent({ courses, activeCourseId, dashboardActive, onDas
       </div>
       <div className="p-4"><CourseCreateDialog onCreated={onCreated} /></div>
       <div className="px-2 pb-4">
-        <Button variant="ghost" className={cn("w-full justify-start", dashboardActive && "bg-sidebar-accent font-semibold text-sidebar-accent-foreground")} onClick={onDashboard}><LayoutDashboard />대시보드</Button>
+        <Button asChild variant="ghost" className={cn("w-full justify-start", dashboardActive && "bg-sidebar-accent font-semibold text-sidebar-accent-foreground")}><Link href="/dashboard" onClick={(event) => { event.preventDefault(); onDashboard(); }}><LayoutDashboard />대시보드</Link></Button>
       </div>
       <div className="flex items-center justify-between px-4 pb-2">
         <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">전체 강의</p>
@@ -46,7 +48,7 @@ export function SidebarContent({ courses, activeCourseId, dashboardActive, onDas
           const liveSchedule = formatKoreanLiveSchedule(course.webinar_at);
           return (
             <div key={course.id} className={cn("group flex items-center rounded-lg", activeCourseId === course.id && "bg-sidebar-accent text-sidebar-accent-foreground")}>
-              <button type="button" className="flex min-w-0 flex-1 items-start gap-2 px-3 py-2.5 text-left" onClick={() => onSelect(course.id)}>
+              <Link href={`/dashboard/courses/${course.id}`} className="flex min-w-0 flex-1 items-start gap-2 px-3 py-2.5 text-left" onMouseEnter={() => onPrefetch(course.id)} onFocus={() => onPrefetch(course.id)} onClick={(event) => { event.preventDefault(); onSelect(course.id); }}>
                 <CourseStatusBadge status={course.status} iconOnly className="mt-0.5" />
                 <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-medium">{course.title}</span>
@@ -55,7 +57,7 @@ export function SidebarContent({ courses, activeCourseId, dashboardActive, onDas
                   {liveSchedule ? <span className="text-sidebar-foreground/70"> ({liveSchedule})</span> : null}
                 </span>
                 </span>
-              </button>
+              </Link>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon-sm" className="mr-1 opacity-70 sm:opacity-0 sm:group-hover:opacity-100" aria-label={`${course.title} 관리 메뉴`}><MoreHorizontal /></Button>
