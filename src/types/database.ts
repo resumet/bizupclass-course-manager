@@ -1,4 +1,6 @@
 export type CourseStatus = "preparing" | "confirmed" | "ended" | "cancelled";
+export type PreparationCategory = "planning" | "instagram" | "youtube" | "landing" | "materials" | "other";
+export type PreparationStatus = "not_started" | "in_progress" | "completed" | "blocked";
 
 export type Course = {
   id: string;
@@ -66,6 +68,21 @@ export type SharedResource = {
   updated_at: string;
 };
 
+export type CoursePreparationTask = {
+  id: string;
+  course_id: string;
+  category: PreparationCategory;
+  title: string;
+  status: PreparationStatus;
+  progress_percent: number;
+  start_date: string | null;
+  due_date: string | null;
+  notes: string | null;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+};
+
 export type GlobalCourseLink = {
   id: string;
   title: string;
@@ -78,6 +95,7 @@ export type GlobalCourseLink = {
 
 export type CourseBundle = {
   course: Course;
+  preparationTasks: CoursePreparationTask[];
   youtube: YoutubeAppearance[];
   landingPages: LandingPage[];
   resources: SharedResource[];
@@ -99,6 +117,25 @@ export type Database = {
           updated_at?: string;
         };
         Update: Partial<Omit<Course, "id" | "created_at">>;
+        Relationships: [];
+      };
+      course_preparation_tasks: {
+        Row: CoursePreparationTask;
+        Insert: {
+          id?: string;
+          course_id: string;
+          category?: PreparationCategory;
+          title: string;
+          status?: PreparationStatus;
+          progress_percent?: number;
+          start_date?: string | null;
+          due_date?: string | null;
+          notes?: string | null;
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Omit<CoursePreparationTask, "id" | "course_id" | "created_at">>;
         Relationships: [];
       };
       youtube_appearances: {

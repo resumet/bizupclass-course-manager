@@ -2,10 +2,11 @@
 
 import { cloneElement, isValidElement, useCallback, useEffect, useId, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
-import { BookOpen, ChartNoAxesColumnIncreasing, Check, Clipboard, ExternalLink, FileText, Globe2, LoaderCircle, Pencil, Plus, Save, Trash2, Video } from "lucide-react";
+import { BookOpen, ChartNoAxesColumnIncreasing, Check, Clipboard, ExternalLink, FileText, Globe2, ListChecks, LoaderCircle, Pencil, Plus, Save, Trash2, Video } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
+import { CoursePreparationTab } from "@/components/courses/course-preparation-tab";
 import { LandingPageTrafficDialog } from "@/components/courses/landing-page-traffic-dialog";
 import { CourseStatusBadge } from "@/components/courses/course-status-badge";
 import { Button } from "@/components/ui/button";
@@ -20,9 +21,9 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatKoreanDate, isoToKstDate, isoToKstDateTime, isHttpUrl, kstDateTimeToIso, kstDateToIso, nullable, requestJson } from "@/lib/client-api";
 import { COURSE_STATUSES, COURSE_STATUS_CONFIG } from "@/lib/course-status";
 import { DEFAULT_SHARED_RESOURCE_URL } from "@/lib/shared-resource-defaults";
-import type { Course, CourseStatus, LandingPage, SharedResource, YoutubeAppearance } from "@/types/database";
+import type { Course, CoursePreparationTask, CourseStatus, LandingPage, SharedResource, YoutubeAppearance } from "@/types/database";
 
-type TabKey = "basic" | "youtube" | "landing" | "resources";
+type TabKey = "basic" | "preparation" | "youtube" | "landing" | "resources";
 type SaveHandler = () => Promise<boolean>;
 type SharedTabProps = {
   onDirtyChange: (dirty: boolean) => void;
@@ -53,6 +54,7 @@ function SaveBar({ dirty, pending, onSave }: { dirty: boolean; pending: boolean;
 export function CourseWorkspace({ course, onDirtyChange, registerSave, guardNavigation, onCourseUpdated }: Props) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabKey>("basic");
+  const [preparationItems, setPreparationItems] = useState<CoursePreparationTask[] | null>(null);
   const [youtubeItems, setYoutubeItems] = useState<YoutubeAppearance[] | null>(null);
   const [landingItems, setLandingItems] = useState<LandingPage[] | null>(null);
   const [resourceItems, setResourceItems] = useState<SharedResource[] | null>(null);
@@ -61,14 +63,15 @@ export function CourseWorkspace({ course, onDirtyChange, registerSave, guardNavi
 
   useEffect(() => {
     if (activeTab === "basic") return;
-    const alreadyLoaded = activeTab === "youtube" ? youtubeItems : activeTab === "landing" ? landingItems : resourceItems;
+    const alreadyLoaded = activeTab === "preparation" ? preparationItems : activeTab === "youtube" ? youtubeItems : activeTab === "landing" ? landingItems : resourceItems;
     if (alreadyLoaded !== null) return;
     let cancelled = false;
-    const endpoint = activeTab === "youtube" ? "youtube" : activeTab === "landing" ? "landing-pages" : "resources";
-    requestJson<YoutubeAppearance[] | LandingPage[] | SharedResource[]>(`/api/courses/${course.id}/${endpoint}`)
+    const endpoint = activeTab === "preparation" ? "preparation-tasks" : activeTab === "youtube" ? "youtube" : activeTab === "landing" ? "landing-pages" : "resources";
+    requestJson<CoursePreparationTask[] | YoutubeAppearance[] | LandingPage[] | SharedResource[]>(`/api/courses/${course.id}/${endpoint}`)
       .then((items) => {
         if (cancelled) return;
-        if (activeTab === "youtube") setYoutubeItems(items as YoutubeAppearance[]);
+        if (activeTab === "preparation") setPreparationItems(items as CoursePreparationTask[]);
+        else if (activeTab === "youtube") setYoutubeItems(items as YoutubeAppearance[]);
         else if (activeTab === "landing") setLandingItems(items as LandingPage[]);
         else setResourceItems(items as SharedResource[]);
       })
@@ -76,13 +79,14 @@ export function CourseWorkspace({ course, onDirtyChange, registerSave, guardNavi
         if (!cancelled) setTabError(error instanceof Error ? error.message : "탭 데이터를 불러오지 못했습니다.");
       });
     return () => { cancelled = true; };
-  }, [activeTab, course.id, landingItems, resourceItems, retryToken, youtubeItems]);
+  }, [activeTab, course.id, landingItems, preparationItems, resourceItems, retryToken, youtubeItems]);
 
   useEffect(() => () => onDirtyChange(false), [onDirtyChange]);
 
   const onDataSaved = useCallback(() => {
     if (activeTab === "basic") return router.refresh();
-    if (activeTab === "youtube") setYoutubeItems(null);
+    if (activeTab === "preparation") setPreparationItems(null);
+    else if (activeTab === "youtube") setYoutubeItems(null);
     else if (activeTab === "landing") setLandingItems(null);
     else setResourceItems(null);
   }, [activeTab, router]);
@@ -97,12 +101,14 @@ export function CourseWorkspace({ course, onDirtyChange, registerSave, guardNavi
       <Tabs value={activeTab} onValueChange={(value) => guardNavigation(() => { setTabError(null); setActiveTab(value as TabKey); })}>
         <TabsList className="mb-5 h-auto w-full justify-start gap-1 overflow-x-auto overflow-y-hidden rounded-xl border bg-muted/60 p-1 shadow-inner">
           <TabsTrigger className={courseTabTriggerClassName} value="basic"><BookOpen />기본 정보</TabsTrigger>
+          <TabsTrigger className={courseTabTriggerClassName} value="preparation"><ListChecks />준비 현황</TabsTrigger>
           <TabsTrigger className={courseTabTriggerClassName} value="youtube"><Video />유튜브 출연</TabsTrigger>
           <TabsTrigger className={courseTabTriggerClassName} value="landing"><Globe2 />랜딩페이지</TabsTrigger>
           <TabsTrigger className={courseTabTriggerClassName} value="resources"><FileText />자료 공유</TabsTrigger>
         </TabsList>
       </Tabs>
       {activeTab === "basic" ? <BasicInfoTab course={course} onCourseUpdated={onCourseUpdated} {...tabProps} /> : null}
+      {activeTab === "preparation" ? preparationItems ? <CoursePreparationTab courseId={course.id} initialItems={preparationItems} {...tabProps} /> : <LazyTabState error={tabError} onRetry={() => { setTabError(null); setRetryToken((value) => value + 1); }} /> : null}
       {activeTab === "youtube" ? youtubeItems ? <YoutubeTab courseId={course.id} initialItems={youtubeItems} {...tabProps} /> : <LazyTabState error={tabError} onRetry={() => { setTabError(null); setRetryToken((value) => value + 1); }} /> : null}
       {activeTab === "landing" ? landingItems ? <LandingTab courseId={course.id} initialItems={landingItems} {...tabProps} /> : <LazyTabState error={tabError} onRetry={() => { setTabError(null); setRetryToken((value) => value + 1); }} /> : null}
       {activeTab === "resources" ? resourceItems ? <ResourcesTab courseId={course.id} initialItems={resourceItems} {...tabProps} /> : <LazyTabState error={tabError} onRetry={() => { setTabError(null); setRetryToken((value) => value + 1); }} /> : null}

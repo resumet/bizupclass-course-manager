@@ -1,4 +1,5 @@
 import { apiError, getAuthenticatedClient, unauthorized } from "@/lib/api/response";
+import { createDefaultPreparationTasks } from "@/lib/course-preparation-defaults";
 import { createDefaultSharedResources } from "@/lib/shared-resource-defaults";
 import { courseSchema, validationError } from "@/lib/validation";
 
@@ -37,6 +38,14 @@ export async function POST(request: Request) {
     if (resourcesError) {
       await auth.supabase.from("courses").delete().eq("id", data.id);
       throw resourcesError;
+    }
+
+    const { error: preparationError } = await auth.supabase
+      .from("course_preparation_tasks")
+      .insert(createDefaultPreparationTasks(data));
+    if (preparationError) {
+      await auth.supabase.from("courses").delete().eq("id", data.id);
+      throw preparationError;
     }
 
     return Response.json(data, { status: 201 });

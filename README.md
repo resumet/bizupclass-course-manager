@@ -6,6 +6,7 @@
 
 - 이메일/비밀번호 로그인과 대시보드/API 세션 보호
 - 강의 생성·수정·삭제 및 반응형 Sidebar/Drawer
+- 강사 인스타그램 운영을 포함한 강의 준비 현황, 전체 진행률과 일정 기반 달성 가능성 자동 판정
 - 유튜브 출연, 랜딩페이지, 자료 공유 다중 CRUD
 - 탭별 명시적 저장, Dirty State, 이동 전 저장 경고
 - 서버 전용 6자리 Short Code 생성과 UNIQUE 충돌 재시도
@@ -18,7 +19,7 @@
 필수 조건은 Node.js 20 이상과 Supabase 프로젝트입니다.
 
 1. `.env.example`을 `.env.local`로 복사하고 Supabase 값을 입력합니다.
-2. Supabase SQL Editor에서 `supabase/migrations/20260809000000_initial_schema.sql`을 실행합니다.
+2. Supabase SQL Editor에서 `supabase/migrations`의 SQL 파일을 이름순으로 실행합니다.
 3. Supabase Authentication의 Users 화면에서 운영자 이메일/비밀번호 계정을 생성합니다.
 4. 의존성을 설치하고 개발 서버를 실행합니다.
 
