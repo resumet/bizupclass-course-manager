@@ -2,10 +2,11 @@
 
 import { cloneElement, isValidElement, useCallback, useEffect, useId, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
-import { BookOpen, ChartNoAxesColumnIncreasing, Check, Clipboard, ExternalLink, FileText, Globe2, ListChecks, LoaderCircle, Pencil, Plus, Save, Trash2, Video } from "lucide-react";
+import { BookOpen, ChartNoAxesColumnIncreasing, Check, Clipboard, ExternalLink, FileText, Globe2, ListChecks, LoaderCircle, MessageCircle, Pencil, Plus, Save, ScrollText, Trash2, Video } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
+import { CourseContentEditorTab } from "@/components/courses/course-content-editor-tab";
 import { CoursePreparationTab } from "@/components/courses/course-preparation-tab";
 import { LandingPageTrafficDialog } from "@/components/courses/landing-page-traffic-dialog";
 import { CourseStatusBadge } from "@/components/courses/course-status-badge";
@@ -21,9 +22,9 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatKoreanDate, isoToKstDate, isoToKstDateTime, isHttpUrl, kstDateTimeToIso, kstDateToIso, nullable, requestJson } from "@/lib/client-api";
 import { COURSE_STATUSES, COURSE_STATUS_CONFIG } from "@/lib/course-status";
 import { DEFAULT_SHARED_RESOURCE_URL } from "@/lib/shared-resource-defaults";
-import type { Course, CoursePreparationTask, CourseStatus, LandingPage, SharedResource, YoutubeAppearance } from "@/types/database";
+import type { Course, CourseContentDocument, CoursePreparationTask, CourseStatus, LandingPage, SharedResource, YoutubeAppearance } from "@/types/database";
 
-type TabKey = "basic" | "preparation" | "youtube" | "landing" | "resources";
+type TabKey = "basic" | "preparation" | "instagramDm" | "youtube" | "landing" | "resources" | "contract";
 type SaveHandler = () => Promise<boolean>;
 type SharedTabProps = {
   onDirtyChange: (dirty: boolean) => void;
@@ -58,37 +59,64 @@ export function CourseWorkspace({ course, onDirtyChange, registerSave, guardNavi
   const [youtubeItems, setYoutubeItems] = useState<YoutubeAppearance[] | null>(null);
   const [landingItems, setLandingItems] = useState<LandingPage[] | null>(null);
   const [resourceItems, setResourceItems] = useState<SharedResource[] | null>(null);
+  const [instagramDmDocument, setInstagramDmDocument] = useState<CourseContentDocument | null>();
+  const [contractTemplateDocument, setContractTemplateDocument] = useState<CourseContentDocument | null>();
   const [tabError, setTabError] = useState<string | null>(null);
   const [retryToken, setRetryToken] = useState(0);
 
   useEffect(() => {
     if (activeTab === "basic") return;
-    const alreadyLoaded = activeTab === "preparation" ? preparationItems : activeTab === "youtube" ? youtubeItems : activeTab === "landing" ? landingItems : resourceItems;
-    if (alreadyLoaded !== null) return;
+    const alreadyLoaded = activeTab === "preparation"
+      ? preparationItems
+      : activeTab === "instagramDm"
+        ? instagramDmDocument
+        : activeTab === "youtube"
+          ? youtubeItems
+          : activeTab === "landing"
+            ? landingItems
+            : activeTab === "resources"
+              ? resourceItems
+              : contractTemplateDocument;
+    if (alreadyLoaded !== null && alreadyLoaded !== undefined) return;
+    if ((activeTab === "instagramDm" || activeTab === "contract") && alreadyLoaded === null) return;
     let cancelled = false;
-    const endpoint = activeTab === "preparation" ? "preparation-tasks" : activeTab === "youtube" ? "youtube" : activeTab === "landing" ? "landing-pages" : "resources";
-    requestJson<CoursePreparationTask[] | YoutubeAppearance[] | LandingPage[] | SharedResource[]>(`/api/courses/${course.id}/${endpoint}`)
+    const endpoint = activeTab === "preparation"
+      ? "preparation-tasks"
+      : activeTab === "instagramDm"
+        ? "content-documents/instagram_dm"
+        : activeTab === "youtube"
+          ? "youtube"
+          : activeTab === "landing"
+            ? "landing-pages"
+            : activeTab === "resources"
+              ? "resources"
+              : "content-documents/contract_template";
+    requestJson<CoursePreparationTask[] | YoutubeAppearance[] | LandingPage[] | SharedResource[] | CourseContentDocument | null>(`/api/courses/${course.id}/${endpoint}`)
       .then((items) => {
         if (cancelled) return;
         if (activeTab === "preparation") setPreparationItems(items as CoursePreparationTask[]);
+        else if (activeTab === "instagramDm") setInstagramDmDocument(items as CourseContentDocument | null);
         else if (activeTab === "youtube") setYoutubeItems(items as YoutubeAppearance[]);
         else if (activeTab === "landing") setLandingItems(items as LandingPage[]);
-        else setResourceItems(items as SharedResource[]);
+        else if (activeTab === "resources") setResourceItems(items as SharedResource[]);
+        else setContractTemplateDocument(items as CourseContentDocument | null);
       })
       .catch((error) => {
         if (!cancelled) setTabError(error instanceof Error ? error.message : "탭 데이터를 불러오지 못했습니다.");
       });
     return () => { cancelled = true; };
-  }, [activeTab, course.id, landingItems, preparationItems, resourceItems, retryToken, youtubeItems]);
+  }, [activeTab, contractTemplateDocument, course.id, instagramDmDocument, landingItems, preparationItems, resourceItems, retryToken, youtubeItems]);
 
   useEffect(() => () => onDirtyChange(false), [onDirtyChange]);
 
   const onDataSaved = useCallback(() => {
     if (activeTab === "basic") return router.refresh();
     if (activeTab === "preparation") setPreparationItems(null);
+    else if (activeTab === "instagramDm") setInstagramDmDocument(undefined);
     else if (activeTab === "youtube") setYoutubeItems(null);
     else if (activeTab === "landing") setLandingItems(null);
-    else setResourceItems(null);
+    else if (activeTab === "resources") setResourceItems(null);
+    else setContractTemplateDocument(undefined);
   }, [activeTab, router]);
 
   const tabProps = { onDirtyChange, registerSave, onDataSaved };
@@ -102,16 +130,20 @@ export function CourseWorkspace({ course, onDirtyChange, registerSave, guardNavi
         <TabsList className="mb-5 h-auto w-full justify-start gap-1 overflow-x-auto overflow-y-hidden rounded-xl border bg-muted/60 p-1 shadow-inner">
           <TabsTrigger className={courseTabTriggerClassName} value="basic"><BookOpen />기본 정보</TabsTrigger>
           <TabsTrigger className={courseTabTriggerClassName} value="preparation"><ListChecks />준비 현황</TabsTrigger>
+          <TabsTrigger className={courseTabTriggerClassName} value="instagramDm"><MessageCircle />인스타 DM</TabsTrigger>
           <TabsTrigger className={courseTabTriggerClassName} value="youtube"><Video />유튜브 출연</TabsTrigger>
           <TabsTrigger className={courseTabTriggerClassName} value="landing"><Globe2 />랜딩페이지</TabsTrigger>
           <TabsTrigger className={courseTabTriggerClassName} value="resources"><FileText />자료 공유</TabsTrigger>
+          <TabsTrigger className={courseTabTriggerClassName} value="contract"><ScrollText />계약서 작성</TabsTrigger>
         </TabsList>
       </Tabs>
       {activeTab === "basic" ? <BasicInfoTab course={course} onCourseUpdated={onCourseUpdated} {...tabProps} /> : null}
       {activeTab === "preparation" ? preparationItems ? <CoursePreparationTab courseId={course.id} initialItems={preparationItems} {...tabProps} /> : <LazyTabState error={tabError} onRetry={() => { setTabError(null); setRetryToken((value) => value + 1); }} /> : null}
+      {activeTab === "instagramDm" ? instagramDmDocument !== undefined ? <CourseContentEditorTab courseId={course.id} documentType="instagram_dm" initialDocument={instagramDmDocument} title="인스타그램 DM 콘텐츠" description="보낼 DM 원문을 작성하고 실제 전송 형태를 확인합니다." editorLabel="DM 원문" placeholder="인스타그램 DM 내용을 여기에 붙여넣으세요." {...tabProps} /> : <LazyTabState error={tabError} onRetry={() => { setTabError(null); setRetryToken((value) => value + 1); }} /> : null}
       {activeTab === "youtube" ? youtubeItems ? <YoutubeTab courseId={course.id} initialItems={youtubeItems} {...tabProps} /> : <LazyTabState error={tabError} onRetry={() => { setTabError(null); setRetryToken((value) => value + 1); }} /> : null}
       {activeTab === "landing" ? landingItems ? <LandingTab courseId={course.id} initialItems={landingItems} {...tabProps} /> : <LazyTabState error={tabError} onRetry={() => { setTabError(null); setRetryToken((value) => value + 1); }} /> : null}
       {activeTab === "resources" ? resourceItems ? <ResourcesTab courseId={course.id} initialItems={resourceItems} {...tabProps} /> : <LazyTabState error={tabError} onRetry={() => { setTabError(null); setRetryToken((value) => value + 1); }} /> : null}
+      {activeTab === "contract" ? contractTemplateDocument !== undefined ? <CourseContentEditorTab courseId={course.id} documentType="contract_template" initialDocument={contractTemplateDocument} title="계약서 작성" description="계약서 원문 전체를 그대로 붙여넣어 템플릿을 수정할 수 있습니다." editorLabel="계약서 템플릿 원문" placeholder="계약서 원문 전체를 여기에 붙여넣으세요.\n\n줄바꿈, 빈 줄, 띄어쓰기가 그대로 저장됩니다." {...tabProps} /> : <LazyTabState error={tabError} onRetry={() => { setTabError(null); setRetryToken((value) => value + 1); }} /> : null}
     </div>
   );
 }

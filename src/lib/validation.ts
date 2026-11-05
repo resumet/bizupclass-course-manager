@@ -27,6 +27,12 @@ export const coursePreparationTaskSchema = z.object({
   { message: "마감일은 시작일보다 빠를 수 없습니다.", path: ["due_date"] },
 );
 
+export const courseContentDocumentSchema = z.object({
+  // Do not trim or normalize this value. Contract and DM source text must be
+  // stored byte-for-byte as received from the editor (apart from JSON encoding).
+  content: z.string().max(2_000_000, "원문은 200만 자까지 저장할 수 있습니다."),
+});
+
 export const youtubeSchema = z.object({
   channel_name: z.string().trim().min(1, "채널 이름을 입력해 주세요."),
   appearance_fee: z.coerce.number().int().min(0).default(0),

@@ -1,6 +1,7 @@
 export type CourseStatus = "preparing" | "confirmed" | "ended" | "cancelled";
 export type PreparationCategory = "planning" | "instagram" | "youtube" | "landing" | "materials" | "other";
 export type PreparationStatus = "not_started" | "in_progress" | "completed" | "blocked";
+export type CourseContentType = "instagram_dm" | "contract_template";
 
 export type Course = {
   id: string;
@@ -83,6 +84,15 @@ export type CoursePreparationTask = {
   updated_at: string;
 };
 
+export type CourseContentDocument = {
+  id: string;
+  course_id: string;
+  content_type: CourseContentType;
+  content: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export type GlobalCourseLink = {
   id: string;
   title: string;
@@ -96,6 +106,7 @@ export type GlobalCourseLink = {
 export type CourseBundle = {
   course: Course;
   preparationTasks: CoursePreparationTask[];
+  contentDocuments: CourseContentDocument[];
   youtube: YoutubeAppearance[];
   landingPages: LandingPage[];
   resources: SharedResource[];
@@ -136,6 +147,19 @@ export type Database = {
           updated_at?: string;
         };
         Update: Partial<Omit<CoursePreparationTask, "id" | "course_id" | "created_at">>;
+        Relationships: [];
+      };
+      course_content_documents: {
+        Row: CourseContentDocument;
+        Insert: {
+          id?: string;
+          course_id: string;
+          content_type: CourseContentType;
+          content?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Omit<CourseContentDocument, "id" | "course_id" | "content_type" | "created_at">>;
         Relationships: [];
       };
       youtube_appearances: {
